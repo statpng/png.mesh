@@ -116,7 +116,7 @@ png_read.vtk <- function(filename, from_python = TRUE){
 
 
 #' @export png.read_plt
-png.read_plt <- function(path, type="triangle"){
+png.read_plt <- function(path, type=c("triangle","point") ){
   library(data.table)
   
   if(FALSE){
@@ -129,23 +129,31 @@ png.read_plt <- function(path, type="triangle"){
   
   change_index = as.numeric( stringr::str_extract(header, "[0-9]+") )
   
-  first_part_lines <- lines[1:change_index]
-  second_part_lines <- lines[change_index:length(lines)]
-  
   # 각 부분을 data.table로 변환
+  first_part_lines <- lines[1:change_index]
   first_part_data <- data.table::fread(text = paste(first_part_lines, collapse = "\n"), header = FALSE, sep = " ") %>% as_tibble()
-  second_part_data <- data.table::fread(text = paste(second_part_lines, collapse = "\n"), header = FALSE, sep = " ") %>% as_tibble()
+  colnames(first_part_data)[1:4] <- c("x", "y", "z", "value")
   
-  data.table::setnames(first_part_data, c("x", "y", "z", "value"))
-  data.table::setnames(second_part_data, c("x", "y", "z"))
-  
-  if(type == "triangle"){
-    mesh <- rgl::tmesh3d(vertices = t(first_part_data[,1:3]), indices = t(second_part_data))
-  } else {
-    mesh <- rgl::mesh3d(vertices = t(first_part_data[,1:3]), quads = t(second_part_data))
+  if(type!="point"){
+    second_part_lines <- lines[(change_index+1):length(lines)]
+    second_part_data <- data.table::fread(text = paste(second_part_lines, collapse = "\n"), header = FALSE, sep = " ") %>% as_tibble()
+    colnames(second_part_data)[1:3] <- c("x", "y", "z")
+    # data.table::setnames(second_part_data, c("x", "y", "z"))
   }
   
-  mesh$value <- as.matrix(first_part_data[,4])
+  
+  if( type == "point" ){
+    mesh <- as.data.frame(first_part_data)
+  } else {
+    if(type == "triangle"){
+      mesh <- rgl::tmesh3d(vertices = t(first_part_data[,1:3]), indices = t(second_part_data))
+    } else {
+      mesh <- rgl::mesh3d(vertices = t(first_part_data[,1:3]), quads = t(second_part_data))
+    }
+    
+    mesh$value <- as.matrix(first_part_data[,4])
+  }
+  
   
   mesh
   
